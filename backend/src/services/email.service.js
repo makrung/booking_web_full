@@ -1,30 +1,36 @@
 ﻿const crypto = require('crypto');
 require('dotenv').config();
-const { Resend } = require('resend');
+const axios = require('axios');
 
-// สร้าง client ของ Resend (ใช้ API key เดียว เรียบง่าย)
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-
-// ฟังก์ชันส่งอีเมลแบบง่าย ใช้ Resend API
+// ฟังก์ชันส่งอีเมลแบบง่าย ใช้ Brevo HTTP API
 const sendEmailSimple = async (to, subject, html) => {
-    if (!process.env.RESEND_API_KEY) {
-        throw new Error('RESEND_API_KEY is missing');
-    }
-    if (!resend) {
-        throw new Error('Resend client not initialized');
-    }
+    const apiKey = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
+    if (!apiKey) throw new Error('BREVO_API_KEY is missing');
+
     const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com';
-    const { data, error } = await resend.emails.send({
-        from: `ระบบจองสนามกีฬา <${fromAddress}>`,
-        to: Array.isArray(to) ? to : [to],
+    const senderName = process.env.EMAIL_SENDER_NAME || 'ระบบจองสนามกีฬา';
+    const replyTo = process.env.EMAIL_REPLY_TO;
+
+    const payload = {
+        sender: { email: fromAddress, name: senderName },
+        to: (Array.isArray(to) ? to : [to]).map((e) => ({ email: e })),
         subject,
-        html
+        htmlContent: html,
+    };
+    if (replyTo) payload.replyTo = { email: replyTo };
+
+    const resp = await axios.post('https://api.brevo.com/v3/smtp/email', payload, {
+        headers: {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'api-key': apiKey,
+        },
+        timeout: 15000,
     });
-    if (error) {
-        throw new Error(`Resend error: ${error.message || JSON.stringify(error)}`);
-    }
-    const msgId = (data && (data.id || data.messageId)) || 'unknown-id';
-    console.log('✅ Email sent via Resend:', msgId);
+
+    const result = resp.data || {};
+    const msgId = result.messageId || (result.messages && result.messages[0] && result.messages[0].messageId) || 'unknown-id';
+    console.log('✅ Email sent via Brevo:', msgId);
     return { success: true, messageId: msgId };
 };
 
@@ -105,8 +111,8 @@ const sendVerificationEmail = async (userEmail, userName, verificationToken) => 
             </html>
         `;
         
-        // ส่งด้วย Resend แบบง่าย
-        console.log('📧 EMAIL SERVICE: Using Resend API');
+        // ส่งด้วย Brevo แบบง่าย
+        console.log('📧 EMAIL SERVICE: Using Brevo API');
         const result = await sendEmailSimple(
             userEmail,
             'ยืนยันอีเมลสำหรับระบบจองสนามกีฬา',
@@ -198,7 +204,7 @@ const sendWelcomeEmail = async (userEmail, userName) => {
             </html>
         `;
         
-        // ส่งอีเมลผ่าน Resend
+        // ส่งอีเมลผ่าน Brevo
         const result = await sendEmailSimple(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
         console.log(`✅ Welcome email sent to ${userEmail}`);
         return result;
@@ -263,7 +269,7 @@ const sendTokenExpiryReminder = async (userEmail, userName, verificationToken) =
             </html>
         `;
         
-        // ส่งอีเมลผ่าน Resend
+        // ส่งอีเมลผ่าน Brevo
         const result = await sendEmailSimple(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
         console.log(`✅ Expiry reminder sent to ${userEmail}`);
         return result;
@@ -294,7 +300,7 @@ const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
                     </div>
                 </body></html>`;
                 
-        // ส่งอีเมลผ่าน Resend
+        // ส่งอีเมลผ่าน Brevo
         const result = await sendEmailSimple(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
         return result;
         } catch (e) {
