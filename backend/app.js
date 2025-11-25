@@ -134,7 +134,10 @@ const staticOptions = {
 app.use(express.static(path.join(__dirname, 'public'), staticOptions));
 
 // Serve Flutter Web static files (Frontend)
-const frontendBuildPath = path.join(__dirname, '../frontend/build/web');
+// For Railway: Flutter Web is in public/web, for local dev: ../frontend/build/web
+const frontendBuildPath = require('fs').existsSync(path.join(__dirname, 'public', 'web', 'index.html'))
+    ? path.join(__dirname, 'public', 'web')
+    : path.join(__dirname, '../frontend/build/web');
 app.use(express.static(frontendBuildPath, staticOptions));
 
 // Quiet 404 spam from browsers requesting /favicon.ico during dev
