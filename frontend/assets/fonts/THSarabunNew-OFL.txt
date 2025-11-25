@@ -1,0 +1,5 @@
+This project uses the Sarabun typeface. Sarabun is licensed under the Open Font License (OFL).
+
+If you need to re-fetch the font TTF file (Sarabun-Regular.ttf), run the PowerShell script download_font.ps1 in this folder or add the TTF file manually as assets/fonts/THSarabunNew.ttf.
+
+OFL: https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL

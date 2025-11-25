@@ -1,0 +1,56 @@
+name: booking_web_full
+description: A Complete Flutter web project for booking sports fields.
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.17.0 <3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  table_calendar: ^3.2.0
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^4.0.1
+  image_picker: ^1.2.0
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  intl: ^0.20.2
+  pdf: ^3.10.4
+  printing: ^5.11.0
+  universal_html: ^2.2.4
+  google_fonts: ^6.1.0
+  fl_chart: ^0.68.0
+  excel: ^4.0.3
+  geolocator: ^10.1.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  web: ^1.1.1
+  flutter_widget_from_html_core: ^0.17.0
+  flutter_quill: ^11.4.2
+  marquee: ^2.2.3
+  http_parser: ^4.0.2
+  file_picker: ^10.2.0
+  file_selector: ^1.0.3
+  zxing2: ^0.1.1
+  image: ^4.1.7
+  path_provider: ^2.1.5
+  google_mlkit_barcode_scanning: ^0.14.1
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/football.jpg
+    - assets/futsal.jpg
+    - assets/basketball.jpg
+    # Thai font for PDF
+    - assets/fonts/THSarabunNew.ttf
+

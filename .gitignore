@@ -1,0 +1,33 @@
+# Backend
+backend/node_modules/
+backend/.env.local
+backend/.env.*.local
+backend/dist/
+backend/build/
+
+# Frontend
+frontend/build/
+frontend/.dart_tool/
+frontend/pubspec.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies
+node_modules/
+.pub/
+.packages

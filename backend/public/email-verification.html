@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ยืนยันอีเมล - ระบบจองสนามกีฬา</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+        }
+        
+        .success {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+        }
+        
+        .error {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+        
+        .loading {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .message {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin: 10px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .button-outline {
+            background: transparent;
+            border: 2px solid #667eea;
+            color: #667eea;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .message {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loadingView">
+            <div class="icon loading">
+                <div class="spinner"></div>
+            </div>
+            <h1>กำลังยืนยันอีเมล</h1>
+            <div class="message">กรุณารอสักครู่...</div>
+        </div>
+        
+        <div id="successView" style="display: none;">
+            <div class="icon success">✓</div>
+            <h1>ยืนยันอีเมลสำเร็จ!</h1>
+            <div class="message">ยินดีต้อนรับสู่ระบบจองสนามกีฬา ตอนนี้คุณสามารถเข้าสู่ระบบได้แล้ว</div>
+            <button class="button" onclick="openApp()">เข้าสู่ระบบ</button>
+            <div class="details">
+                <strong>🎉 บัญชีของคุณพร้อมใช้งานแล้ว!</strong><br>
+                • คะแนนเริ่มต้น: 100 คะแนน<br>
+                • สามารถจองสนามได้ทันที<br>
+                • ใช้โค้ด QR เพื่อยืนยันการเข้าใช้สนาม
+            </div>
+        </div>
+        
+        <div id="errorView" style="display: none;">
+            <div class="icon error">✕</div>
+            <h1 id="errorTitle">การยืนยันล้มเหลว</h1>
+            <div class="message" id="errorMessage">เกิดข้อผิดพลาดในการยืนยันอีเมล</div>
+            <button class="button" onclick="requestNewLink()">ขอลิงก์ใหม่</button>
+            <button class="button button-outline" onclick="openApp()">กลับไปหน้าหลัก</button>
+            <div class="details" id="errorDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        // ดึง token จาก URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        // ถ้าไม่มี token ให้แสดง error
+        if (!token) {
+            showError('ไม่พบโทเค็นการยืนยัน', 'ลิงก์ไม่ถูกต้องหรือไม่สมบูรณ์');
+        } else {
+            // เรียก API เพื่อยืนยันอีเมล
+            verifyEmail(token);
+        }
+        
+        async function verifyEmail(token) {
+            try {
+                const response = await fetch(`/api/auth/verify-email/${token}`);
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showSuccess(data.message);
+                } else {
+                    if (data.expired) {
+                        showError('ลิงก์หมดอายุ', data.error, 'ลิงก์ยืนยันมีอายุการใช้งาน 24 ชั่วโมง กรุณาขอลิงก์ใหม่');
+                    } else {
+                        showError('การยืนยันล้มเหลว', data.error);
+                    }
+                }
+            } catch (error) {
+                showError('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+            }
+        }
+        
+        function showSuccess(message) {
+            document.getElementById('loadingView').style.display = 'none';
+            document.getElementById('successView').style.display = 'block';
+            if (message) {
+                document.querySelector('#successView .message').textContent = message;
+            }
+        }
+        
+        function showError(title, message, details = '') {
+            document.getElementById('loadingView').style.display = 'none';
+            document.getElementById('errorView').style.display = 'block';
+            
+            if (title) {
+                document.getElementById('errorTitle').textContent = title;
+            }
+            if (message) {
+                document.getElementById('errorMessage').textContent = message;
+            }
+            if (details) {
+                document.getElementById('errorDetails').innerHTML = `<strong>รายละเอียด:</strong><br>${details}`;
+            }
+        }
+        
+        function openApp() {
+            // สำหรับ Flutter Web หรือ redirect ไปหน้า login
+            if (window.flutter_inappwebview) {
+                // ถ้าเปิดใน Flutter WebView
+                window.flutter_inappwebview.callHandler('verificationComplete', {success: true});
+            } else {
+                // เปิดในเบราว์เซอร์ปกติ - กลับไปหน้าหลัก
+                window.location.href = '/';
+            }
+        }
+        
+        function requestNewLink() {
+            if (window.flutter_inappwebview) {
+                window.flutter_inappwebview.callHandler('requestNewVerification');
+            } else {
+                // แสดง prompt ให้ใส่อีเมล
+                const email = prompt('กรุณาใส่อีเมลของคุณเพื่อขอลิงก์ใหม่:');
+                if (email) {
+                    resendVerification(email);
+                }
+            }
+        }
+        
+        async function resendVerification(email) {
+            try {
+                const response = await fetch('/api/auth/resend-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email: email })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    alert('ส่งลิงก์ยืนยันใหม่แล้ว กรุณาตรวจสอบอีเมลของคุณ');
+                } else {
+                    alert('ไม่สามารถส่งลิงก์ได้: ' + (data.error || 'เกิดข้อผิดพลาด'));
+                }
+            } catch (error) {
+                alert('เกิดข้อผิดพลาดในการส่งลิงก์');
+            }
+        }
+    </script>
+</body>
+</html>
