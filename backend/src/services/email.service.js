@@ -14,15 +14,15 @@ const sendEmailViaGmail = async (to, subject, html) => {
     // ลอง SMTP ก่อน (สำหรับ localhost)
     try {
         console.log(`📧 Trying Gmail SMTP to: ${to}`);
-        
-        const transporter = nodemailer.createTransporter({
-            service: 'gmail',
+
+        // ใช้ Gmail SMTP + App Password
+        const transporter = nodemailer.create({
             host: 'smtp.gmail.com',
             port: 587,
-            secure: false,
+            secure: false, // ใช้ STARTTLS
             auth: {
                 user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS.replace(/\s/g, '') // ลบช่องว่าง
+                pass: (process.env.EMAIL_PASS || '').replace(/\s/g, '') // ลบช่องว่างเผื่อใส่มาแบบมี space
             }
         });
 
