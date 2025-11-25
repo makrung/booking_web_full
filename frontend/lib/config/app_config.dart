@@ -5,31 +5,9 @@ class AppConfig {
   AppConfig._();
 
   // API Configuration
-  // In production, API is on same domain as frontend
-  // In development, use localhost:3000
-  static String get apiBaseUrl {
-    // Check if we're in production (non-localhost domain)
-    // This works because Flutter Web runs in browser
-    const environment = String.fromEnvironment('ENVIRONMENT', defaultValue: 'development');
-    
-    if (environment == 'production') {
-      // In production, API is on same server
-      return '/api';
-    }
-    
-    // For local development
-    return 'http://localhost:3000/api';
-  }
-  
-  static String get frontendUrl {
-    const environment = String.fromEnvironment('ENVIRONMENT', defaultValue: 'development');
-    
-    if (environment == 'production') {
-      return '';
-    }
-    
-    return 'http://localhost:8080';
-  }
+  // Use relative path for production (works on same domain)
+  static const String apiBaseUrl = '/api';
+  static const String frontendUrl = '';
   
   // Timeout Configuration
   static const Duration apiTimeout = Duration(seconds: 30);
