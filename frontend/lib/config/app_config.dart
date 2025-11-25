@@ -1,3 +1,5 @@
+import 'package:web/web.dart' as web;
+
 /// Configuration constants for the application
 /// Centralized configuration to avoid duplication across services
 class AppConfig {
@@ -5,8 +7,34 @@ class AppConfig {
   AppConfig._();
 
   // API Configuration
-  static const String apiBaseUrl = 'http://localhost:3000/api';
-  static const String frontendUrl = 'http://localhost:8080';
+  // Use current domain for production, localhost for development
+  static String get apiBaseUrl {
+    final location = web.window.location;
+    final hostname = location.hostname;
+    final port = location.port;
+    final protocol = location.protocol;
+    
+    // If running on Railway or production domain
+    if (hostname != 'localhost' && hostname != '127.0.0.1') {
+      return '$protocol//$hostname${port.isNotEmpty ? ":$port" : ""}/api';
+    }
+    
+    // For local development
+    return 'http://localhost:3000/api';
+  }
+  
+  static String get frontendUrl {
+    final location = web.window.location;
+    final hostname = location.hostname;
+    final port = location.port;
+    final protocol = location.protocol;
+    
+    if (hostname != 'localhost' && hostname != '127.0.0.1') {
+      return '$protocol//$hostname${port.isNotEmpty ? ":$port" : ""}';
+    }
+    
+    return 'http://localhost:8080';
+  }
   
   // Timeout Configuration
   static const Duration apiTimeout = Duration(seconds: 30);
