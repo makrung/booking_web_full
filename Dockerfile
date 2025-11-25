@@ -22,8 +22,14 @@ COPY backend/.env ./backend/
 # Copy public folder
 COPY backend/public ./backend/public/
 
+# Remove old web files if exist
+RUN rm -rf ./backend/public/web
+
 # Copy Flutter Web build files
 COPY frontend/build/web/ ./backend/public/web/
+
+# Verify files copied
+RUN ls -la ./backend/public/web/ || echo "Web files not found"
 
 # Set working directory to backend for running
 WORKDIR /app/backend
