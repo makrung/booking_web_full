@@ -1218,9 +1218,9 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
                   ? null
                   : () {
                       setState(() {
-                        isUploadMode = false;
+                        // บังคับโหมดอัปโหลดเสมอ (ไม่ใช้สแกนกล้อง)
+                        isUploadMode = true;
                       });
-                      // ซ่อนปุ่มสแกนด้วยกล้อง (ผู้ใช้ใช้เฉพาะการอัปโหลดรูป QR Code)
                       _scanQRCode();
                     },
               icon: Icon(Icons.upload_file, color: Colors.teal[700]),
