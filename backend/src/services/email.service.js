@@ -5,6 +5,14 @@ require('dotenv').config();
 // ส่งอีเมลผ่าน Resend HTTP API (ไม่ใช่ SMTP)
 const sendEmailViaResend = async (to, subject, html) => {
     try {
+        // ⚠️ Resend test mode: ส่งได้เฉพาะอีเมลที่ใช้สมัคร Resend
+        // ใน production ต้อง verify domain ก่อน
+        const allowedTestEmail = 'noretify32@gmail.com';
+        const actualRecipient = to.includes('@') ? to : allowedTestEmail;
+        
+        console.log(`📧 Sending email via Resend API`);
+        console.log(`   To: ${actualRecipient} ${actualRecipient !== to ? '(forced to test email)' : ''}`);
+        
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -13,7 +21,7 @@ const sendEmailViaResend = async (to, subject, html) => {
             },
             body: JSON.stringify({
                 from: 'Booking System <onboarding@resend.dev>',
-                to: [to],
+                to: [actualRecipient], // ส่งไปที่อีเมลที่อนุญาต
                 subject: subject,
                 html: html
             })
