@@ -43,6 +43,9 @@ const sendEmailViaGmail = async (to, subject, html) => {
         
         const transporter = nodemailer.createTransporter({
             service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS
@@ -50,7 +53,7 @@ const sendEmailViaGmail = async (to, subject, html) => {
         });
 
         const mailOptions = {
-            from: `"Booking System" <${process.env.EMAIL_USER}>`,
+            from: `"ระบบจองสนามกีฬา" <${process.env.EMAIL_USER}>`,
             to: to,
             subject: subject,
             html: html
@@ -61,7 +64,10 @@ const sendEmailViaGmail = async (to, subject, html) => {
         return { success: true, messageId: info.messageId };
     } catch (error) {
         console.error('❌ Gmail SMTP error:', error.message);
-        throw error;
+        console.error('📌 Railway บล็อก SMTP ports - ต้องใช้ HTTP API แทน (MailerSend, SendGrid, etc.)');
+        
+        // ให้สมัครสมาชิกสำเร็จต่อ แม้อีเมลส่งไม่สำเร็จ
+        return { success: false, message: error.message, note: 'Email failed but registration succeeded' };
     }
 };
 
