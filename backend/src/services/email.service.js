@@ -2,59 +2,67 @@
 const crypto = require('crypto');
 require('dotenv').config();
 
-// ส่งอีเมลผ่าน Resend HTTP API (ไม่ใช่ SMTP)
-const sendEmailViaResend = async (to, subject, html) => {
+// ส่งอีเมลผ่าน MailerSend SMTP (ใช้งานได้ทั้ง Railway และ localhost)
+const sendEmailViaMailerSend = async (to, subject, html) => {
     try {
-        console.log(`📧 Sending email via Resend API to: ${to}`);
+        console.log(`📧 Sending email via MailerSend SMTP to: ${to}`);
         
-        const response = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                from: 'Booking System <onboarding@resend.dev>',
-                to: [to],
-                subject: subject,
-                html: html
-            })
+        // สร้าง transporter สำหรับ MailerSend
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.mailersend.net',
+            port: 587,
+            secure: false, // ใช้ STARTTLS
+            auth: {
+                user: process.env.MAILERSEND_USERNAME || process.env.EMAIL_USER,
+                pass: process.env.MAILERSEND_PASSWORD || process.env.EMAIL_PASS
+            }
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.warn('⚠️ Resend API warning:', errorText);
-            
-            // ถ้า error เป็นเรื่อง test mode limitation - ให้ทำต่อได้
-            if (errorText.includes('testing emails')) {
-                console.log('⚠️ Resend test mode: Email not actually sent, but registration continues');
-                return { success: true, messageId: 'test-mode-skipped', note: 'Test mode - email not sent' };
-            }
-            
-            throw new Error(`Resend API error: ${errorText}`);
-        }
+        const mailOptions = {
+            from: process.env.MAILERSEND_FROM || '"Booking System" <noreply@trial-0r83ql3jz0v4zw1j.mlsender.net>',
+            to: to,
+            subject: subject,
+            html: html
+        };
 
-        const result = await response.json();
-        console.log('✅ Email sent via Resend:', result.id);
-        return { success: true, messageId: result.id };
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Email sent via MailerSend:', info.messageId);
+        return { success: true, messageId: info.messageId };
     } catch (error) {
-        console.error('❌ Resend API error:', error.message);
-        // ไม่ throw error - ให้สมัครสมาชิกสำเร็จต่อได้
-        return { success: false, message: error.message, note: 'Email failed but registration succeeded' };
+        console.error('❌ MailerSend error:', error.message);
+        
+        // Fallback: ลองใช้ Gmail SMTP
+        return await sendEmailViaGmail(to, subject, html);
     }
 };
 
-// สร้าง transporter สำหรับส่งอีเมล (fallback สำหรับ local dev)
-const createTransporter = async () => {
-    // Fallback: ใช้ Gmail (สำหรับ local development เท่านั้น)
-    console.log('📧 EMAIL SERVICE: Using Gmail SMTP (Development Mode)');
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-        }
-    });
+// Fallback: ส่งอีเมลผ่าน Gmail SMTP
+const sendEmailViaGmail = async (to, subject, html) => {
+    try {
+        console.log(`📧 Fallback: Sending email via Gmail SMTP to: ${to}`);
+        
+        const transporter = nodemailer.createTransporter({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+
+        const mailOptions = {
+            from: `"Booking System" <${process.env.EMAIL_USER}>`,
+            to: to,
+            subject: subject,
+            html: html
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Email sent via Gmail:', info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('❌ Gmail SMTP error:', error.message);
+        throw error;
+    }
 };
 
 // สร้างโทเค็นการยืนยันที่ปลอดภัย
@@ -134,38 +142,22 @@ const sendVerificationEmail = async (userEmail, userName, verificationToken) => 
             </html>
         `;
         
-        // ใช้ Resend API ถ้ามี API key (สำหรับ production)
-        if (process.env.RESEND_API_KEY) {
-            console.log('📧 EMAIL SERVICE: Using Resend HTTP API (Production Mode)');
-            await sendEmailViaResend(
-                userEmail,
-                'ยืนยันอีเมลสำหรับระบบจองสนามกีฬา',
-                emailTemplate
-            );
-            
-            console.log('\n📧 EMAIL VERIFICATION');
-            console.log('==========================================');
-            console.log(`To: ${userEmail}`);
-            console.log(`Verification URL: ${verificationUrl}`);
-            console.log(`✅ Email sent via Resend API!`);
-            console.log('==========================================\n');
-            
-            return { success: true, message: 'Verification email sent successfully' };
-        }
+        // ส่งอีเมลผ่าน MailerSend SMTP (รองรับ Railway)
+        console.log('📧 EMAIL SERVICE: Using MailerSend SMTP');
+        const result = await sendEmailViaMailerSend(
+            userEmail,
+            'ยืนยันอีเมลสำหรับระบบจองสนามกีฬา',
+            emailTemplate
+        );
         
-        // Fallback: ใช้ Nodemailer (local dev only)
-        const transporter = await createTransporter();
-        const mailOptions = {
-            from: `"ระบบจองสนามกีฬา มหาวิทยาลัยศิลปกรรม" <${process.env.EMAIL_USER}>`,
-            to: userEmail,
-            subject: 'ยืนยันอีเมลสำหรับระบบจองสนามกีฬา',
-            html: emailTemplate
-        };
+        console.log('\n📧 EMAIL VERIFICATION');
+        console.log('==========================================');
+        console.log(`To: ${userEmail}`);
+        console.log(`Verification URL: ${verificationUrl}`);
+        console.log(`✅ Email sent successfully!`);
+        console.log('==========================================\n');
         
-        await transporter.sendMail(mailOptions);
-        console.log(`✅ Email sent successfully to ${userEmail}`);
-        
-        return { success: true, message: 'Verification email sent successfully' };
+        return result;
         
     } catch (error) {
         console.error('❌ Error sending verification email:', error);
@@ -243,23 +235,10 @@ const sendWelcomeEmail = async (userEmail, userName) => {
             </html>
         `;
         
-        // ใช้ Resend API ถ้ามี (production)
-        if (process.env.RESEND_API_KEY) {
-            await sendEmailViaResend(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
-            console.log(`✅ Welcome email sent to ${userEmail}`);
-            return { success: true, message: 'Welcome email sent successfully' };
-        }
-        
-        // Fallback (local dev)
-        const transporter = await createTransporter();
-        await transporter.sendMail({
-            from: `"ระบบจองสนามกีฬา" <${process.env.EMAIL_USER}>`,
-            to: userEmail,
-            subject: 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา',
-            html: welcomeTemplate
-        });
+        // ส่งอีเมลผ่าน MailerSend SMTP
+        const result = await sendEmailViaMailerSend(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
         console.log(`✅ Welcome email sent to ${userEmail}`);
-        return { success: true, message: 'Welcome email sent successfully' };
+        return result;
         
     } catch (error) {
         console.error('❌ Error sending welcome email:', error);
@@ -321,23 +300,10 @@ const sendTokenExpiryReminder = async (userEmail, userName, verificationToken) =
             </html>
         `;
         
-        // ใช้ Resend API ถ้ามี (production)
-        if (process.env.RESEND_API_KEY) {
-            await sendEmailViaResend(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
-            console.log(`✅ Expiry reminder sent to ${userEmail}`);
-            return { success: true, message: 'Reminder email sent successfully' };
-        }
-        
-        // Fallback (local dev)
-        const transporter = await createTransporter();
-        await transporter.sendMail({
-            from: `"ระบบจองสนามกีฬา" <${process.env.EMAIL_USER}>`,
-            to: userEmail,
-            subject: 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ',
-            html: emailTemplate
-        });
+        // ส่งอีเมลผ่าน MailerSend SMTP
+        const result = await sendEmailViaMailerSend(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
         console.log(`✅ Expiry reminder sent to ${userEmail}`);
-        return { success: true, message: 'Reminder email sent successfully' };
+        return result;
         
     } catch (error) {
         console.error('❌ Error sending reminder email:', error);
@@ -365,21 +331,9 @@ const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
                     </div>
                 </body></html>`;
                 
-        // ใช้ Resend API ถ้ามี (production)
-        if (process.env.RESEND_API_KEY) {
-            await sendEmailViaResend(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
-            return { success: true };
-        }
-        
-        // Fallback (local dev)
-        const transporter = await createTransporter();
-        await transporter.sendMail({
-            from: `ระบบจองสนามกีฬา <${process.env.EMAIL_USER}>`,
-            to: userEmail,
-            subject: 'ลิงก์รีเซ็ตรหัสผ่าน',
-            html
-        });
-        return { success: true };
+        // ส่งอีเมลผ่าน MailerSend SMTP
+        const result = await sendEmailViaMailerSend(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
+        return result;
         } catch (e) {
                 console.error('sendPasswordResetEmail error:', e);
                 return { success: false, message: e.message };
