@@ -1,60 +1,8 @@
-﻿const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+﻿const crypto = require('crypto');
 require('dotenv').config();
 
-// ส่งอีเมลผ่าน Gmail (ลอง SMTP ก่อน สำหรับ localhost)
-const sendEmailViaMailerSend = async (to, subject, html) => {
-    // ลองใช้ Gmail SMTP ก่อน (localhost)
-    // ถ้า fail จะ fallback ไป Gmail API
-    return await sendEmailViaGmail(to, subject, html);
-};
-
-// ส่งอีเมลผ่าน Gmail SMTP และ HTTP API (รองรับทั้ง localhost และ Railway)
-const sendEmailViaGmail = async (to, subject, html) => {
-    // ลอง SMTP ก่อน (สำหรับ localhost)
-    try {
-        console.log(`📧 Trying Gmail SMTP to: ${to}`);
-
-        // ใช้ Gmail SMTP + App Password (สำหรับรันบนเครื่องตัวเอง)
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false, // ใช้ STARTTLS
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: (process.env.EMAIL_PASS || '').replace(/\s/g, '') // ลบช่องว่างเผื่อใส่มาแบบมี space
-            }
-        });
-
-        const mailOptions = {
-            from: `"ระบบจองสนามกีฬา มหาวิทยาลัยศิลปกรรม" <${process.env.EMAIL_USER}>`,
-            to: to,
-            subject: subject,
-            html: html
-        };
-
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email sent via Gmail SMTP:', info.messageId);
-        return { success: true, messageId: info.messageId };
-    } catch (smtpError) {
-        console.warn('⚠️ Gmail SMTP failed (Railway บล็อก SMTP):', smtpError.message);
-        
-        // Fallback: ใช้ Brevo (SendinBlue) HTTP API แทน
-        try {
-            console.log('🔄 Trying Brevo HTTP API...');
-            return await sendEmailViaBrevo(to, subject, html);
-        } catch (apiError) {
-            console.error('❌ All email methods failed:', apiError.message);
-            
-            // ให้สมัครสมาชิกสำเร็จต่อ แม้อีเมลส่งไม่สำเร็จ
-            console.log('⚠️ User registration continues without email verification');
-            return { success: false, message: apiError.message, note: 'Email failed but registration succeeded' };
-        }
-    }
-};
-
-// ส่งอีเมลผ่าน Brevo (SendinBlue) HTTP API - Free 300 emails/day
-const sendEmailViaBrevo = async (to, subject, html) => {
+// ส่งอีเมลผ่าน Brevo (SendinBlue) HTTP API - ใช้ provider เดียวให้เรียบง่าย
+const sendEmail = async (to, subject, html) => {
     const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
     
     if (!BREVO_API_KEY) {
@@ -70,7 +18,7 @@ const sendEmailViaBrevo = async (to, subject, html) => {
         },
         body: JSON.stringify({
             sender: {
-                name: 'ระบบจองสนามกีฬา',
+                name: 'ระบบจองสนามกีฬา มหาวิทยาลัยศิลปกรรม',
                 email: process.env.EMAIL_USER || 'noreply@example.com'
             },
             to: [{ email: to }],
@@ -85,8 +33,8 @@ const sendEmailViaBrevo = async (to, subject, html) => {
     }
     
     const result = await response.json();
-    console.log('✅ Email sent via Brevo HTTP API:', result.messageId);
-    return { success: true, messageId: result.messageId };
+    console.log('✅ Email sent via Brevo HTTP API:', result.messageId || result.messageId || result);
+    return { success: true, messageId: result.messageId || result.messageId || result };
 };
 
 // สร้างโทเค็นการยืนยันที่ปลอดภัย
@@ -166,9 +114,9 @@ const sendVerificationEmail = async (userEmail, userName, verificationToken) => 
             </html>
         `;
         
-        // ส่งอีเมลผ่าน MailerSend SMTP (รองรับ Railway)
-        console.log('📧 EMAIL SERVICE: Using MailerSend SMTP');
-        const result = await sendEmailViaMailerSend(
+        // ส่งอีเมลผ่าน Brevo HTTP API (provider เดียว ใช้ง่าย)
+        console.log('📧 EMAIL SERVICE: Using Brevo HTTP API');
+        const result = await sendEmail(
             userEmail,
             'ยืนยันอีเมลสำหรับระบบจองสนามกีฬา',
             emailTemplate
@@ -259,8 +207,8 @@ const sendWelcomeEmail = async (userEmail, userName) => {
             </html>
         `;
         
-        // ส่งอีเมลผ่าน MailerSend SMTP
-        const result = await sendEmailViaMailerSend(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
+        // ส่งอีเมลผ่าน Brevo HTTP API
+        const result = await sendEmail(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
         console.log(`✅ Welcome email sent to ${userEmail}`);
         return result;
         
@@ -324,8 +272,8 @@ const sendTokenExpiryReminder = async (userEmail, userName, verificationToken) =
             </html>
         `;
         
-        // ส่งอีเมลผ่าน MailerSend SMTP
-        const result = await sendEmailViaMailerSend(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
+        // ส่งอีเมลผ่าน Brevo HTTP API
+        const result = await sendEmail(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
         console.log(`✅ Expiry reminder sent to ${userEmail}`);
         return result;
         
@@ -355,8 +303,8 @@ const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
                     </div>
                 </body></html>`;
                 
-        // ส่งอีเมลผ่าน MailerSend SMTP
-        const result = await sendEmailViaMailerSend(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
+        // ส่งอีเมลผ่าน Brevo HTTP API
+        const result = await sendEmail(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
         return result;
         } catch (e) {
                 console.error('sendPasswordResetEmail error:', e);
