@@ -18,11 +18,8 @@ COPY backend/.env ./backend/
 # Copy public folder
 COPY backend/public ./backend/public/
 
-# Try to copy Flutter Web build files if they exist, otherwise create empty directory
-RUN mkdir -p ./backend/public/web
-
-# For now, we'll skip copying web files since they may not be in the repo
-# If needed later, they can be added via a separate build step or mounted volume
+# Copy Flutter Web build files
+COPY frontend/build/web/ ./backend/public/web/
 
 WORKDIR /app/backend
 
