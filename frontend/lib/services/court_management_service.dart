@@ -1,8 +1,9 @@
 import 'dart:convert';
 import '../core/base_service.dart';
+import '../config/app_config.dart';
 
 class CourtManagementService extends BaseService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
 
 
@@ -11,7 +12,7 @@ class CourtManagementService extends BaseService {
     try {
       // ใช้ BaseService method สำหรับ GET request
       final response = await BaseService.get(
-        'http://localhost:3000/api/courts',
+        '${AppConfig.apiBaseUrl}/courts',
         includeAuth: false,
       );
       
@@ -87,7 +88,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> addCourt(Map<String, dynamic> courtData) async {
     try {
       final response = await BaseService.post(
-        'http://localhost:3000/api/admin/courts',
+        '${AppConfig.apiBaseUrl}/admin/courts',
         courtData,
         includeAuth: true,
       );
@@ -118,7 +119,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> updateCourt(String courtId, Map<String, dynamic> courtData) async {
     try {
       final response = await BaseService.put(
-        'http://localhost:3000/api/admin/courts/$courtId',
+        '${AppConfig.apiBaseUrl}/admin/courts/$courtId',
         courtData,
         includeAuth: true,
       );
@@ -149,7 +150,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> deleteCourt(String courtId) async {
     try {
       final response = await BaseService.delete(
-        'http://localhost:3000/api/admin/courts/$courtId',
+        '${AppConfig.apiBaseUrl}/admin/courts/$courtId',
         includeAuth: true,
       );
 

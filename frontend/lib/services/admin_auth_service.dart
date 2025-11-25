@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/base_service.dart';
+import '../config/app_config.dart';
 
 class AdminAuthService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
   
   // สร้าง admin token สำหรับการจัดการสนาม
   static Future<Map<String, dynamic>> createAdminToken() async {

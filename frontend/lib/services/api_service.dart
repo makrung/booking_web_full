@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 /// Original ApiService
 /// Maintains backward compatibility with existing code
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

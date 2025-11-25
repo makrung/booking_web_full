@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../core/base_service.dart';
+import '../config/app_config.dart';
 
 class CourtManagementService extends BaseService {
   // ดึงข้อมูลสนามทั้งหมด
@@ -7,7 +8,7 @@ class CourtManagementService extends BaseService {
     try {
       // ใช้ BaseService method สำหรับ GET request
       final response = await BaseService.get(
-        'http://localhost:3000/api/courts',
+        '${AppConfig.apiBaseUrl}/courts',
         includeAuth: false,
       );
       
@@ -29,7 +30,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> getCourtsByType(String type) async {
     try {
       final response = await BaseService.get(
-        'http://localhost:3000/api/courts/type/$type',
+        '${AppConfig.apiBaseUrl}/courts/type/$type',
         includeAuth: false,
       );
       
@@ -47,7 +48,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> getCourtsByCategory(String category) async {
     try {
       final response = await BaseService.get(
-        'http://localhost:3000/api/courts/category/$category',
+        '${AppConfig.apiBaseUrl}/courts/category/$category',
         includeAuth: false,
       );
       
@@ -65,7 +66,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> getCourt(String courtId) async {
     try {
       final response = await BaseService.get(
-        'http://localhost:3000/api/courts/$courtId',
+        '${AppConfig.apiBaseUrl}/courts/$courtId',
         includeAuth: false,
       );
       
@@ -89,7 +90,7 @@ class CourtManagementService extends BaseService {
       print('🔵 Current token: ${token?.substring(0, 20)}...');
       
       final response = await BaseService.post(
-        'http://localhost:3000/api/admin/courts',
+        '${AppConfig.apiBaseUrl}/admin/courts',
         courtData,
         includeAuth: true,
       );
@@ -130,7 +131,7 @@ class CourtManagementService extends BaseService {
       print('🔵 Current token: ${token?.substring(0, 20)}...');
       
       final response = await BaseService.put(
-        'http://localhost:3000/api/admin/courts/$courtId',
+        '${AppConfig.apiBaseUrl}/admin/courts/$courtId',
         courtData,
         includeAuth: true,
       );
@@ -165,7 +166,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> deleteCourt(String courtId) async {
     try {
       final response = await BaseService.delete(
-        'http://localhost:3000/api/admin/courts/$courtId',
+        '${AppConfig.apiBaseUrl}/admin/courts/$courtId',
         includeAuth: true,
       );
 
@@ -195,7 +196,7 @@ class CourtManagementService extends BaseService {
   static Future<Map<String, dynamic>> toggleCourtAvailability(String courtId) async {
     try {
       final response = await BaseService.patch(
-        'http://localhost:3000/api/admin/courts/$courtId/toggle-availability',
+        '${AppConfig.apiBaseUrl}/admin/courts/$courtId/toggle-availability',
         {},
         includeAuth: true,
       );
@@ -225,7 +226,7 @@ class CourtManagementService extends BaseService {
   // ดึงสถิติการใช้งานสนาม
   static Future<Map<String, dynamic>> getCourtStatistics(String courtId, {String? startDate, String? endDate}) async {
     try {
-      String url = 'http://localhost:3000/api/admin/courts/$courtId/statistics';
+      String url = '${AppConfig.apiBaseUrl}/admin/courts/$courtId/statistics';
       
       // เพิ่ม query parameters ถ้ามี
       final queryParams = <String>[];

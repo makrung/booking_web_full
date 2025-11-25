@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'services/api_service.dart';
+import 'config/app_config.dart';
 import 'Login.dart';
 import 'package:web/web.dart' as html;
 
@@ -129,7 +130,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
       
       // เรียก API เพื่อตรวจสอบสถานะจาก Firebase
       final response = await http.get(
-        Uri.parse('http://localhost:3000/api/auth/check-verification-status/${Uri.encodeComponent(widget.email)}'),
+        Uri.parse('${AppConfig.apiBaseUrl}/auth/check-verification-status/${Uri.encodeComponent(widget.email)}'),
         headers: {'Content-Type': 'application/json'},
       );
       
