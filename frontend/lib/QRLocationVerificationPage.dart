@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'services/booking_service.dart';
 import 'services/enhanced_location_service.dart';
-import 'services/settings_service.dart';
 import 'services/enhanced_qr_reader_service.dart';
 import 'services/content_service.dart';
 import 'models/location_model.dart';
@@ -31,8 +29,6 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
   int currentStep = 0;
   String? qrData;
   bool isScanning = false;
-  // ตั้งค่าเริ่มต้นเป็นโหมดอัปโหลด เพื่อบังคับให้ใช้เฉพาะการอัปโหลดรูป QR Code
-  bool isUploadMode = true;
   bool isVerifyingLocation = false;
   bool isSubmittingBooking = false;
   
@@ -60,7 +56,6 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
     );
     _animationController.forward();
     
-    _loadSettings();
     _loadBackendSettings();
   }
 
@@ -419,12 +414,6 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
     }
   }
 
-  Future<void> _loadSettings() async {
-    final uploadMode = await SettingsService.isQRUploadModeEnabled();
-    setState(() {
-      isUploadMode = uploadMode;
-    });
-  }
 
   Future<void> _loadBackendSettings() async {
     try {
@@ -467,122 +456,39 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
   }
 
   Future<void> _scanQRCode() async {
-    if (!widget.isRegularBooking) {
-      // การจองกิจกรรมไม่ต้องแสกน QR
+    // กรณีการจองกิจกรรม ไม่ต้องอ่าน QR
+    if (!widget.isRegularBooking || !requireQR) {
       _proceedToLocationVerification();
       return;
     }
-
-    // ถ้าปิดการตรวจสอบ QR ให้ข้ามไปยืนยัน location หรือ submit เลย
-    if (!requireQR) {
-  // QR verification disabled, skipping to location/submit
-      _proceedToLocationVerification();
-      return;
-    }
-
-    setState(() {
-      isScanning = true;
-    });
-
+    setState(() { isScanning = true; });
     try {
-      String? scannedData;
-      
-      if (isUploadMode) {
-        scannedData = await EnhancedQRReaderService.readFromImagePicker();
-      } else {
-        // ใช้กล้องแสกน (ต้องเพิ่ม UI สำหรับ mobile_scanner)
-        scannedData = await _showCameraScanner();
+      final scannedData = await EnhancedQRReaderService.readFromImagePicker();
+      if (scannedData == null || scannedData.isEmpty) {
+        _showErrorDialog('ไม่สามารถอ่าน QR Code จากไฟล์ที่เลือก');
+        return;
       }
-
-      if (scannedData != null) {
-    // scanned data received (logging suppressed)
-        
-        // แสดงข้อความแจ้งผลการอ่าน QR Code
-        _showQRReadResult(scannedData);
-        
-          try {
-            // Simplified behavior: only treat QR content as plain court name text.
-            final expectedCourtName = _normalize(widget.bookingData['courtName']?.toString() ?? '');
-            final scannedText = _normalize(scannedData.toString());
-
-            if (scannedText.isNotEmpty && scannedText == expectedCourtName) {
-              setState(() {
-                isScanning = false;
-                // store the raw scanned QR payload so submit/confirm calls can include it
-                qrData = scannedData?.toString() ?? '';
-                if (requireLocation) {
-                  currentStep = requireQR ? 1 : 0;
-                }
-              });
-              _proceedToLocationVerification();
-            } else {
-              _showErrorDialog(
-                'QR Code ไม่ตรงกับสนามที่จอง\n\n'
-                'สนามที่จอง: ${widget.bookingData['courtName'] ?? ''}\n'
-                'QR Code ที่แสกน: ${_sanitize(scannedData)}\n\n'
-                'กรุณาแสกน QR Code ของสนามที่ถูกต้อง'
-              );
-            }
-          } catch (parseError) {
-            _showErrorDialog('QR Code ไม่ถูกต้อง - กรุณาลองอีกครั้ง');
-          }
+      _showQRReadResult(scannedData);
+      final expectedCourtName = _normalize(widget.bookingData['courtName']?.toString() ?? '');
+      final scannedText = _normalize(scannedData.toString());
+      if (scannedText.isNotEmpty && scannedText == expectedCourtName) {
+        setState(() {
+          qrData = scannedData.toString();
+        });
+        _proceedToLocationVerification();
       } else {
         _showErrorDialog(
-          'ไม่สามารถอ่าน QR Code ได้\n\n'
-          'เคล็ดลับ:\n'
-          '• ตรวจสอบว่ารูปภาพชัดเจน\n'
-          '• ถ่ายรูป QR Code ทั้งหมด\n'
-          '• ใช้แสงที่เพียงพอ\n'
-          '• หลีกเลี่ยงเงาบนรูปภาพ'
+          'QR Code ไม่ตรงกับสนามที่จอง\n\n'
+          'สนามที่จอง: ${widget.bookingData['courtName'] ?? ''}\n'
+          'QR ที่เลือก: ${_sanitize(scannedData)}\n\n'
+          'กรุณาเลือกไฟล์ QR Code ของสนามที่ถูกต้อง'
         );
       }
     } catch (e) {
-      _showErrorDialog('เกิดข้อผิดพลาดในการแสกน QR Code\n${e.toString()}');
+      _showErrorDialog('เกิดข้อผิดพลาดในการอ่านไฟล์ QR Code\n${e.toString()}');
     } finally {
-      setState(() {
-        isScanning = false;
-      });
+      setState(() { isScanning = false; });
     }
-  }
-
-  Future<String?> _showCameraScanner() async {
-    return await showDialog<String>(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          height: 400,
-          child: Column(
-            children: [
-              AppBar(
-                title: Text('แสกน QR Code'),
-                leading: IconButton(
-                  icon: Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              Expanded(
-                child: MobileScanner(
-                  onDetect: (capture) {
-                    try {
-                      final List<Barcode> barcodes = capture.barcodes;
-                      for (final b in barcodes) {
-                        if (b.format == BarcodeFormat.qrCode) {
-                          final value = b.rawValue?.trim();
-                          if (value != null && value.isNotEmpty) {
-                            Navigator.pop(context, value);
-                            break;
-                          }
-                        }
-                      }
-                    } catch (_) {}
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _proceedToLocationVerification() async {
@@ -1207,30 +1113,26 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
 
   Widget _buildQRScanStep() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ไม่แสดง QR ภายในหน้าเช็คอิน
-        // แสดงปุ่มให้เลือกแสกนด้วยกล้อง หรือ อัปโหลดรูปได้ทันที
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ElevatedButton.icon(
-              onPressed: isScanning
-                  ? null
-                  : () {
-                      setState(() {
-                        // บังคับโหมดอัปโหลดเสมอ (ไม่ใช้สแกนกล้อง)
-                        isUploadMode = true;
-                      });
-                      _scanQRCode();
-                    },
-              icon: Icon(Icons.upload_file, color: Colors.teal[700]),
-              label: Text('อัปโหลดรูป QR Code'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.teal[700],
-                side: BorderSide(color: Colors.teal[700]!),
-              ),
-            ),
-          ],
+        ElevatedButton.icon(
+          onPressed: isScanning ? null : _scanQRCode,
+          icon: isScanning
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal))
+              : Icon(Icons.upload_file, color: Colors.teal[700]),
+          label: Text(isScanning ? 'กำลังอ่านไฟล์...' : 'เลือกไฟล์ QR Code'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.teal[700],
+            side: BorderSide(color: Colors.teal[700]!),
+          ),
+        ),
+        SizedBox(height: 12),
+        Text(
+          'รองรับไฟล์รูปภาพ PNG/JPG ที่มี QR Code ของสนามเท่านั้น',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
       ],
     );
