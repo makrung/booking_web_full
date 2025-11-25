@@ -4,8 +4,22 @@ require('dotenv').config();
 
 // สร้าง transporter สำหรับส่งอีเมล
 const createTransporter = async () => {
-    // ใช้ Gmail สำหรับส่งอีเมลจริง
-    console.log('📧 EMAIL SERVICE: Using Gmail SMTP (Production Mode)');
+    // ตรวจสอบว่ามี SENDGRID_API_KEY หรือไม่
+    if (process.env.SENDGRID_API_KEY) {
+        console.log('📧 EMAIL SERVICE: Using SendGrid (Production Mode)');
+        return nodemailer.createTransport({
+            host: 'smtp.sendgrid.net',
+            port: 587,
+            secure: false, // use TLS
+            auth: {
+                user: 'apikey',
+                pass: process.env.SENDGRID_API_KEY
+            }
+        });
+    }
+    
+    // Fallback: ใช้ Gmail (สำหรับ local development เท่านั้น)
+    console.log('📧 EMAIL SERVICE: Using Gmail SMTP (Development Mode)');
     return nodemailer.createTransport({
         service: 'gmail',
         auth: {
