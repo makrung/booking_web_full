@@ -1,5 +1,3 @@
-import 'package:web/web.dart' as web;
-
 /// Configuration constants for the application
 /// Centralized configuration to avoid duplication across services
 class AppConfig {
@@ -7,16 +5,16 @@ class AppConfig {
   AppConfig._();
 
   // API Configuration
-  // Use current domain for production, localhost for development
+  // In production, API is on same domain as frontend
+  // In development, use localhost:3000
   static String get apiBaseUrl {
-    final location = web.window.location;
-    final hostname = location.hostname;
-    final port = location.port;
-    final protocol = location.protocol;
+    // Check if we're in production (non-localhost domain)
+    // This works because Flutter Web runs in browser
+    const environment = String.fromEnvironment('ENVIRONMENT', defaultValue: 'development');
     
-    // If running on Railway or production domain
-    if (hostname != 'localhost' && hostname != '127.0.0.1') {
-      return '$protocol//$hostname${port.isNotEmpty ? ":$port" : ""}/api';
+    if (environment == 'production') {
+      // In production, API is on same server
+      return '/api';
     }
     
     // For local development
@@ -24,13 +22,10 @@ class AppConfig {
   }
   
   static String get frontendUrl {
-    final location = web.window.location;
-    final hostname = location.hostname;
-    final port = location.port;
-    final protocol = location.protocol;
+    const environment = String.fromEnvironment('ENVIRONMENT', defaultValue: 'development');
     
-    if (hostname != 'localhost' && hostname != '127.0.0.1') {
-      return '$protocol//$hostname${port.isNotEmpty ? ":$port" : ""}';
+    if (environment == 'production') {
+      return '';
     }
     
     return 'http://localhost:8080';
