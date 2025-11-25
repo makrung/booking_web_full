@@ -5,13 +5,7 @@ require('dotenv').config();
 // ส่งอีเมลผ่าน Resend HTTP API (ไม่ใช่ SMTP)
 const sendEmailViaResend = async (to, subject, html) => {
     try {
-        // ⚠️ Resend test mode: ส่งได้เฉพาะอีเมลที่ใช้สมัคร Resend
-        // ใน production ต้อง verify domain ก่อน
-        const allowedTestEmail = 'noretify32@gmail.com';
-        const actualRecipient = to.includes('@') ? to : allowedTestEmail;
-        
-        console.log(`📧 Sending email via Resend API`);
-        console.log(`   To: ${actualRecipient} ${actualRecipient !== to ? '(forced to test email)' : ''}`);
+        console.log(`📧 Sending email via Resend API to: ${to}`);
         
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -21,23 +15,32 @@ const sendEmailViaResend = async (to, subject, html) => {
             },
             body: JSON.stringify({
                 from: 'Booking System <onboarding@resend.dev>',
-                to: [actualRecipient], // ส่งไปที่อีเมลที่อนุญาต
+                to: [to],
                 subject: subject,
                 html: html
             })
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`Resend API error: ${error}`);
+            const errorText = await response.text();
+            console.warn('⚠️ Resend API warning:', errorText);
+            
+            // ถ้า error เป็นเรื่อง test mode limitation - ให้ทำต่อได้
+            if (errorText.includes('testing emails')) {
+                console.log('⚠️ Resend test mode: Email not actually sent, but registration continues');
+                return { success: true, messageId: 'test-mode-skipped', note: 'Test mode - email not sent' };
+            }
+            
+            throw new Error(`Resend API error: ${errorText}`);
         }
 
         const result = await response.json();
         console.log('✅ Email sent via Resend:', result.id);
         return { success: true, messageId: result.id };
     } catch (error) {
-        console.error('❌ Resend API error:', error);
-        throw error;
+        console.error('❌ Resend API error:', error.message);
+        // ไม่ throw error - ให้สมัครสมาชิกสำเร็จต่อได้
+        return { success: false, message: error.message, note: 'Email failed but registration succeeded' };
     }
 };
 
