@@ -137,36 +137,8 @@ app.use(express.static(path.join(__dirname, 'public'), staticOptions));
 const frontendBuildPath = path.join(__dirname, '../frontend/build/web');
 app.use(express.static(frontendBuildPath, staticOptions));
 
-// SPA fallback: For Flutter Web routing, redirect 404 to index.html
-app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-        return next(); // Let API routes handle
-    }
-    const indexPath = path.join(frontendBuildPath, 'index.html');
-    res.sendFile(indexPath, (err) => {
-        if (err) {
-            res.status(404).json({ error: 'Not Found' });
-        }
-    });
-});
-
 // Quiet 404 spam from browsers requesting /favicon.ico during dev
 app.get('/favicon.ico', (req, res) => res.status(204).end());
-
-// Basic route
-app.get('/', (req, res) => {
-    res.json({ 
-        message: 'Welcome to BookedSport API!',
-        availableRoutes: {
-            register: '/api/auth/register',
-            login: '/api/auth/login',
-            verifyEmail: '/api/auth/verify-email/:token',
-            resendVerification: '/api/auth/resend-verification',
-            courts: '/api/courts',       
-            bookings: '/api/bookings'
-        }
-    });
-});
 
 // Email verification page route
 app.get('/verify-email', (req, res) => {
@@ -201,9 +173,28 @@ app.use('/api', apiLimiter, newsRoutes);
 app.use('/api', apiLimiter, pointsRoutes);
 app.use('/api', apiLimiter, contentRoutes);
 
-// 404 handler
+// SPA fallback: For Flutter Web routing, serve index.html for non-API routes
+app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+        return next();
+    }
+    // Serve Flutter Web index.html
+    const indexPath = path.join(frontendBuildPath, 'index.html');
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            next(err);
+        }
+    });
+});
+
+// 404 handler for API routes
 app.use((req, res, next) => {
-    res.status(404).json({ error: 'Not Found' });
+    if (req.path.startsWith('/api/')) {
+        res.status(404).json({ error: 'Not Found' });
+    } else {
+        next();
+    }
 });
 
 // Error handler
