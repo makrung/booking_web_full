@@ -31,7 +31,8 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
   int currentStep = 0;
   String? qrData;
   bool isScanning = false;
-  bool isUploadMode = false;
+  // ตั้งค่าเริ่มต้นเป็นโหมดอัปโหลด เพื่อบังคับให้ใช้เฉพาะการอัปโหลดรูป QR Code
+  bool isUploadMode = true;
   bool isVerifyingLocation = false;
   bool isSubmittingBooking = false;
   
@@ -1219,29 +1220,7 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
                       setState(() {
                         isUploadMode = false;
                       });
-                      _scanQRCode();
-                    },
-              icon: isScanning
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(Icons.qr_code_scanner),
-              label: Text(isScanning ? 'กำลังแสกน...' : 'เริ่มแสกนด้วยกล้อง'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal[700],
-                foregroundColor: Colors.white,
-              ),
-            ),
-            SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: isScanning
-                  ? null
-                  : () {
-                      setState(() {
-                        isUploadMode = true;
-                      });
+                      // ซ่อนปุ่มสแกนด้วยกล้อง (ผู้ใช้ใช้เฉพาะการอัปโหลดรูป QR Code)
                       _scanQRCode();
                     },
               icon: Icon(Icons.upload_file, color: Colors.teal[700]),

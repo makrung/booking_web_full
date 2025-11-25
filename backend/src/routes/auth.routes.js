@@ -205,164 +205,106 @@ router.post('/register', async (req, res) => {
 router.get('/verify-email/:token', async (req, res) => {
     try {
         const { token } = req.params;
-        
-        if (!token) {
-            return res.status(400).json({ 
-                error: 'ไม่พบโทเค็นการยืนยัน' 
-            });
-        }
+        if (!token) return res.status(400).send('ไม่พบโทเค็นการยืนยัน');
+
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+        // Serve a confirmation page that performs POST to actually verify.
+        const html = `
+        <!DOCTYPE html>
+        <html lang="th"><head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex,nofollow" />
+        <title>กำลังยืนยันอีเมล...</title>
+        <style>
+            body{margin:0;background:linear-gradient(135deg,#1E3A8A,#3B82F6);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
+            .card{background:#fff;border-radius:16px;box-shadow:0 18px 40px rgba(0,0,0,.18);max-width:560px;width:92%;padding:28px;text-align:center}
+            .spinner{width:36px;height:36px;border-radius:50%;border:3px solid #e5e7eb;border-top-color:#3B82F6;margin:14px auto;animation:spin 1s linear infinite}
+            @keyframes spin{to{transform:rotate(360deg)}}
+            .ok{color:#059669}
+            .err{color:#DC2626}
+            .btn{display:inline-block;margin-top:14px;padding:10px 16px;border-radius:10px;background:#3B82F6;color:#fff;text-decoration:none;font-weight:600}
+        </style>
+        </head><body>
+            <div class="card">
+                <h2>กำลังยืนยันอีเมลของคุณ</h2>
+                <div class="spinner" id="sp"></div>
+                <div id="msg">โปรดรอสักครู่...</div>
+            </div>
+            <script>
+                (async function(){
+                    const token = ${JSON.stringify(token)};
+                    try{
+                        const res = await fetch('/api/auth/verify-email',{
+                            method:'POST',
+                            headers:{'content-type':'application/json'},
+                            body: JSON.stringify({ token })
+                        });
+                        const data = await res.json().catch(()=>({ success:false, error:'รูปแบบการตอบกลับไม่ถูกต้อง' }));
+                        if(res.ok && data && data.success){
+                            try{ localStorage.setItem('email_verified','true'); localStorage.setItem('verification_time', String(Date.now())); }catch(e){}
+                            document.getElementById('msg').innerHTML = '<div class="ok">ยืนยันอีเมลสำเร็จ! กำลังพาไปหน้าเข้าสู่ระบบ...</div>';
+                            setTimeout(()=>{ window.location.href = ${JSON.stringify(frontendUrl)} + '/login?verified=true&ts=' + Date.now(); }, 1200);
+                        }else{
+                            const err = (data && (data.error||data.message)) || 'ไม่สามารถยืนยันอีเมลได้';
+                            document.getElementById('sp').style.display = 'none';
+                            document.getElementById('msg').innerHTML = '<div class="err">' + err + '</div>' +
+                                '<div style="margin-top:10px"><a class="btn" href='+JSON.stringify(frontendUrl) + '+"/login">กลับสู่หน้าเข้าสู่ระบบ</a></div>';
+                        }
+                    }catch(e){
+                        document.getElementById('sp').style.display = 'none';
+                        document.getElementById('msg').innerHTML = '<div class="err">เกิดข้อผิดพลาดในการเชื่อมต่อ</div>';
+                    }
+                })();
+            </script>
+        </body></html>`;
+        return res.send(html);
+    } catch (error) {
+        console.error('Email verification page error:', error);
+        res.status(500).send('เกิดข้อผิดพลาดในการโหลดหน้ายืนยันอีเมล');
+    }
+});
+
+// Perform email verification via POST to avoid bot/link-prefetch auto verification
+router.post('/verify-email', async (req, res) => {
+    try {
+        const token = String((req.body && req.body.token) || '').trim();
+        if (!token) return res.status(400).json({ error: 'ไม่พบโทเค็นการยืนยัน' });
 
         const db = admin.firestore();
-        
-        // Find user with verification token
         const userSnapshot = await db.collection('users')
             .where('emailVerificationToken', '==', token)
+            .limit(1)
             .get();
-        
-        if (userSnapshot.empty) {
-            return res.status(400).json({ 
-                error: 'โทเค็นการยืนยันไม่ถูกต้องหรือหมดอายุแล้ว' 
-            });
-        }
+        if (userSnapshot.empty) return res.status(400).json({ error: 'โทเค็นการยืนยันไม่ถูกต้องหรือหมดอายุแล้ว' });
 
         const userDoc = userSnapshot.docs[0];
         const userData = userDoc.data();
 
-        // Check if token is expired
         const now = new Date();
-        const expiryDate = userData.emailVerificationExpiry.toDate();
-        
-        if (now > expiryDate) {
-            return res.status(400).json({ 
-                error: 'โทเค็นการยืนยันหมดอายุแล้ว กรุณาขอโทเค็นใหม่',
-                expired: true
-            });
-        }
+        const expiryDate = userData.emailVerificationExpiry && userData.emailVerificationExpiry.toDate ? userData.emailVerificationExpiry.toDate() : new Date(0);
+        if (now > expiryDate) return res.status(400).json({ error: 'โทเค็นการยืนยันหมดอายุแล้ว กรุณาขอโทเค็นใหม่', expired: true });
 
-        // Check if already verified
-        if (userData.isEmailVerified) {
-            return res.status(400).json({ 
-                error: 'อีเมลนี้ได้รับการยืนยันแล้ว' 
-            });
-        }
+        if (userData.isEmailVerified) return res.status(200).json({ success: true, alreadyVerified: true });
 
-        // Update user - verify email and activate account
         await userDoc.ref.update({
             isEmailVerified: true,
             isActive: true,
             emailVerificationToken: admin.firestore.FieldValue.delete(),
             emailVerificationExpiry: admin.firestore.FieldValue.delete(),
-            emailVerifiedAt: admin.firestore.FieldValue.serverTimestamp()
+            emailVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        // Send welcome email
-        await sendWelcomeEmail(userData.email, `${userData.firstName} ${userData.lastName}`);
+        // Fire and forget welcome email (do not block response)
+        sendWelcomeEmail(userData.email, `${userData.firstName} ${userData.lastName}`).catch(err=>{
+            console.warn('sendWelcomeEmail failed:', err && err.message);
+        });
 
-        // Create HTML response that sets localStorage and redirects
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
-        const htmlResponse = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>อีเมลยืนยันสำเร็จ</title>
-            <meta charset="UTF-8">
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background: linear-gradient(135deg, #1E3A8A, #3B82F6);
-                    margin: 0;
-                    padding: 20px;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    min-height: 100vh;
-                }
-                .container {
-                    background: white;
-                    padding: 40px;
-                    border-radius: 20px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-                    text-align: center;
-                    max-width: 500px;
-                }
-                .success-icon {
-                    width: 80px;
-                    height: 80px;
-                    background: #10B981;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 0 auto 20px;
-                    color: white;
-                    font-size: 40px;
-                }
-                h1 {
-                    color: #059669;
-                    margin-bottom: 16px;
-                }
-                p {
-                    color: #6B7280;
-                    line-height: 1.6;
-                    margin-bottom: 30px;
-                }
-                .redirect-info {
-                    background: #F3F4F6;
-                    padding: 20px;
-                    border-radius: 10px;
-                    margin-bottom: 20px;
-                }
-                .spinner {
-                    border: 3px solid #f3f3f3;
-                    border-top: 3px solid #059669;
-                    border-radius: 50%;
-                    width: 30px;
-                    height: 30px;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto;
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="success-icon">✓</div>
-                <h1>ยืนยันอีเมลสำเร็จ!</h1>
-                <p>คุณได้ยืนยันอีเมลเรียบร้อยแล้ว<br>ระบบกำลังนำคุณกลับไปยังหน้าเข้าสู่ระบบ</p>
-                <div class="redirect-info">
-                    <div class="spinner"></div>
-                    <p style="margin-top: 10px; margin-bottom: 0;">กำลังโหลด...</p>
-                </div>
-            </div>
-            
-            <script>
-                // Set flag ใน localStorage เพื่อให้หน้ารอการยืนยันตรวจสอบได้
-                try {
-                    localStorage.setItem('email_verified', 'true');
-                    localStorage.setItem('verification_time', Date.now().toString());
-                } catch (e) {
-                    console.log('localStorage not available');
-                }
-                
-                // Redirect หลังจาก 2 วินาที
-                setTimeout(function() {
-                    window.location.href = '${frontendUrl}/login?verified=true&timestamp=' + Date.now();
-                }, 2000);
-            </script>
-        </body>
-        </html>
-        `;
-        
-        res.send(htmlResponse);
-
+        return res.json({ success: true });
     } catch (error) {
-        console.error('Email verification error:', error);
-        res.status(500).json({ 
-            error: 'เกิดข้อผิดพลาดในการยืนยันอีเมล' 
-        });
+        console.error('Email verification POST error:', error);
+        res.status(500).json({ error: 'เกิดข้อผิดพลาดในการยืนยันอีเมล' });
     }
 });
 
