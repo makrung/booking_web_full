@@ -180,6 +180,22 @@ class ApiService {
     }
   }
 
+  // Cancel registration (delete unverified account)
+  static Future<Map<String, dynamic>> cancelRegistration({ required String email }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/cancel-registration'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      );
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) return data;
+      return { 'success': false, 'message': data['error'] ?? 'ยกเลิกไม่สำเร็จ' };
+    } catch (e) {
+      return { 'success': false, 'message': 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ' };
+    }
+  }
+
   // Verify email
   static Future<Map<String, dynamic>> verifyEmail(String token) async {
     try {

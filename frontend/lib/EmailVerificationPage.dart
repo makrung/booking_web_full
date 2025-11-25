@@ -126,9 +126,9 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
     });
 
     try {
-      print('Checking verification status with Firebase for: ${widget.email}');
+      print('Checking verification status in backend for: ${widget.email}');
       
-      // เรียก API เพื่อตรวจสอบสถานะจาก Firebase
+      // เรียก API เพื่อตรวจสอบสถานะจากระบบ
       final response = await http.get(
         Uri.parse('${AppConfig.apiBaseUrl}/auth/check-verification-status/${Uri.encodeComponent(widget.email)}'),
         headers: {'Content-Type': 'application/json'},
@@ -145,7 +145,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
           _statusCheckTimer?.cancel();
           _focusCheckTimer?.cancel();
           
-          print('Email verification found in Firebase!');
+          print('Email verification found in backend!');
           
           if (mounted) {
             setState(() {
@@ -166,13 +166,13 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
       // ยังไม่พบการยืนยัน - ยังคงตรวจสอบต่อไป
       if (mounted) {
         setState(() {
-          _message = 'เราได้ส่งลิงก์ยืนยันไปยังอีเมลของคุณแล้ว (ตรวจสอบกับ Firebase)';
+          _message = 'เราได้ส่งลิงก์ยืนยันไปยังอีเมลของคุณแล้ว';
           _messageColor = Colors.black87;
         });
       }
       
     } catch (e) {
-      print('Firebase verification check error: $e');
+      print('Verification check error: $e');
       
       // ถ้า API ล้มเหลว ลองตรวจสอบ localStorage เป็น fallback
       try {
@@ -601,7 +601,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'ระบบตรวจสอบสถานะจาก Firebase ทุก 3 วินาที',
+                                    'ระบบตรวจสอบสถานะแบบอัตโนมัติทุก 3 วินาที',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.blue[700],
@@ -618,7 +618,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
                     
                     SizedBox(height: 32),
                     
-                    // Resend button
+                    // Action buttons
                     if (widget.showResendOption)
                       Column(
                         children: [
@@ -630,38 +630,73 @@ class _EmailVerificationPageState extends State<EmailVerificationPage>
                             ),
                           ),
                           SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: _canResend && !_isResending ? _resendVerificationEmail : null,
-                            icon: _isResending 
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : Icon(Icons.refresh),
-                            label: Text(
-                              _isResending 
-                                  ? 'กำลังส่ง...'
-                                  : _canResend 
-                                      ? 'ส่งอีเมลใหม่'
-                                      : 'ส่งใหม่ได้ใน ${_resendCountdown}s',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: _canResend && !_isResending ? _resendVerificationEmail : null,
+                                icon: _isResending 
+                                    ? SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                    : Icon(Icons.refresh),
+                                label: Text(
+                                  _isResending 
+                                      ? 'กำลังส่ง...'
+                                      : _canResend 
+                                          ? 'ส่งอีเมลใหม่'
+                                          : 'ส่งใหม่ได้ใน ${_resendCountdown}s',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange[600],
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  elevation: 2,
+                                ),
                               ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange[600],
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
+                              SizedBox(width: 12),
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  // ยกเลิกการสมัคร และลบข้อมูลผู้ใช้ที่ยังไม่ยืนยัน
+                                  setState(() { _message = 'กำลังยกเลิกการสมัคร...'; _messageColor = Colors.red[700]!; });
+                                  final resp = await ApiService.cancelRegistration(email: widget.email);
+                                  if (mounted) {
+                                    if (resp['success'] == true) {
+                                      _statusCheckTimer?.cancel();
+                                      _focusCheckTimer?.cancel();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('ยกเลิกการสมัครเรียบร้อยแล้ว'), backgroundColor: Colors.green)
+                                      );
+                                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(resp['message'] ?? 'ยกเลิกไม่สำเร็จ'), backgroundColor: Colors.red)
+                                      );
+                                    }
+                                  }
+                                },
+                                icon: Icon(Icons.cancel, color: Colors.red[700]),
+                                label: Text('ยกเลิกการสมัคร'),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: Colors.red[300]!),
+                                  foregroundColor: Colors.red[700],
+                                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                                ),
                               ),
-                              elevation: 2,
-                            ),
+                            ],
                           ),
                         ],
                       ),

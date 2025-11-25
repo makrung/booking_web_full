@@ -646,6 +646,31 @@ router.get('/check-verification-status/:email', async (req, res) => {
     }
 });
 
+// Cancel a pending registration (delete unverified user by email)
+router.post('/cancel-registration', async (req, res) => {
+    try {
+        const { email } = req.body || {};
+        if (!email) return res.status(400).json({ error: 'กรุณาระบุอีเมล' });
+
+        const db = admin.firestore();
+        const normalizedEmail = String(email).toLowerCase().trim();
+        const snap = await db.collection('users').where('email', '==', normalizedEmail).limit(1).get();
+        if (snap.empty) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้นี้' });
+
+        const doc = snap.docs[0];
+        const data = doc.data();
+        if (data.isEmailVerified) {
+            return res.status(400).json({ error: 'บัญชีนี้ได้รับการยืนยันแล้ว ไม่สามารถยกเลิกได้' });
+        }
+
+        await doc.ref.delete();
+        return res.json({ success: true, message: 'ยกเลิกการสมัครและลบข้อมูลเรียบร้อยแล้ว' });
+    } catch (e) {
+        console.error('cancel-registration error:', e);
+        res.status(500).json({ error: 'เกิดข้อผิดพลาดในการยกเลิกการสมัคร' });
+    }
+});
+
 // สร้าง admin token สำหรับการจัดการระบบ
 router.post('/admin-token', async (req, res) => {
     try {
