@@ -4,6 +4,20 @@ require('dotenv').config();
 
 // สร้าง transporter สำหรับส่งอีเมล
 const createTransporter = async () => {
+    // ตรวจสอบว่ามี RESEND_API_KEY หรือไม่
+    if (process.env.RESEND_API_KEY) {
+        console.log('📧 EMAIL SERVICE: Using Resend (Production Mode)');
+        return nodemailer.createTransport({
+            host: 'smtp.resend.com',
+            port: 465,
+            secure: true,
+            auth: {
+                user: 'resend',
+                pass: process.env.RESEND_API_KEY
+            }
+        });
+    }
+    
     // ตรวจสอบว่ามี SENDGRID_API_KEY หรือไม่
     if (process.env.SENDGRID_API_KEY) {
         console.log('📧 EMAIL SERVICE: Using SendGrid (Production Mode)');
