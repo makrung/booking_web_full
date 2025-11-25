@@ -23,13 +23,13 @@ COPY backend/.env ./backend/
 COPY backend/public ./backend/public/
 
 # Remove old web files if exist
-RUN rm -rf ./backend/public/web
+RUN rm -rf ./backend/public/web && mkdir -p ./backend/public/web
 
-# Copy Flutter Web build files
-COPY frontend/build/web/ ./backend/public/web/
+# Copy Flutter Web build files (all contents)
+COPY frontend/build/web ./backend/public/web
 
-# Verify files copied
-RUN ls -la ./backend/public/web/ || echo "Web files not found"
+# Verify files copied - should see index.html and other files
+RUN ls -la ./backend/public/web/ && test -f ./backend/public/web/index.html || (echo "ERROR: index.html not found!" && exit 1)
 
 # Set working directory to backend for running
 WORKDIR /app/backend
