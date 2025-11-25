@@ -7,9 +7,14 @@ backend/build/
 backend/serviceAccountKey.json
 
 # Frontend
-frontend/build/
+# Ignore other build outputs but keep web build for deployment
 frontend/.dart_tool/
 frontend/pubspec.lock
+frontend/build/android/
+frontend/build/ios/
+frontend/build/linux/
+frontend/build/macos/
+frontend/build/windows/
 
 # IDE
 .vscode/
