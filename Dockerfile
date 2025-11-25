@@ -1,4 +1,5 @@
 # Build Backend with Frontend static files
+# Force rebuild: v2
 FROM node:18-alpine
 
 WORKDIR /app
@@ -25,11 +26,17 @@ COPY backend/public ./backend/public/
 # Remove old web files if exist
 RUN rm -rf ./backend/public/web && mkdir -p ./backend/public/web
 
-# Copy Flutter Web build files (all contents)
-COPY frontend/build/web ./backend/public/web
+# Copy Flutter Web build files (all contents including subdirectories)
+COPY --chown=node:node frontend/build/web ./backend/public/web
 
-# Verify files copied - should see index.html and other files
-RUN ls -la ./backend/public/web/ && test -f ./backend/public/web/index.html || (echo "ERROR: index.html not found!" && exit 1)
+# Verify files copied - should see index.html, main.dart.js and other files
+RUN echo "=== Verifying web files ===" && \
+    ls -lah ./backend/public/web/ && \
+    echo "=== Checking index.html ===" && \
+    test -f ./backend/public/web/index.html || (echo "ERROR: index.html not found!" && exit 1) && \
+    echo "=== Checking main.dart.js ===" && \
+    test -f ./backend/public/web/main.dart.js || (echo "ERROR: main.dart.js not found!" && exit 1) && \
+    echo "=== All files verified successfully ==="
 
 # Set working directory to backend for running
 WORKDIR /app/backend
