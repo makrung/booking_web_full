@@ -24,7 +24,8 @@ const generateVerificationToken = () => {
 const sendVerificationEmail = async (userEmail, userName, verificationToken) => {
     try {
         // ลิงก์ยืนยันชี้ไปที่ backend API ที่จะ redirect ไป frontend
-    const backendBase = process.env.BACKEND_URL || 'http://localhost:3000';
+    // Use Railway domain or localhost for development
+    const backendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verificationUrl = `${backendBase}/api/auth/verify-email/${verificationToken}`;
         
         const emailTemplate = `
@@ -209,7 +210,8 @@ const sendWelcomeEmail = async (userEmail, userName) => {
 // ส่งอีเมลเตือนก่อนหมดอายุ
 const sendTokenExpiryReminder = async (userEmail, userName, verificationToken) => {
     try {
-    const backendBase = process.env.BACKEND_URL || 'http://localhost:3000';
+    // Use Railway domain or localhost for development
+    const backendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
     const verificationUrl = `${backendBase}/api/auth/verify-email/${verificationToken}`;
         
         const emailTemplate = `
@@ -282,7 +284,8 @@ const sendTokenExpiryReminder = async (userEmail, userName, verificationToken) =
 const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
     try {
         // Always point to backend reset page; that page will redirect to FRONTEND_URL when configured
-        const backendBase = process.env.BACKEND_URL || 'http://localhost:3000';
+        // Use Railway domain or localhost for development
+        const backendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
         const resetUrl = `${backendBase}/api/auth/reset-password-page/${resetToken}`;
                 const html = `
                 <!DOCTYPE html>
