@@ -15,8 +15,8 @@ const sendEmailViaGmail = async (to, subject, html) => {
     try {
         console.log(`📧 Trying Gmail SMTP to: ${to}`);
 
-        // ใช้ Gmail SMTP + App Password
-        const transporter = nodemailer.create({
+        // ใช้ Gmail SMTP + App Password (สำหรับรันบนเครื่องตัวเอง)
+        const transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 587,
             secure: false, // ใช้ STARTTLS
