@@ -14,14 +14,18 @@ const sendEmailSimple = async (to, subject, html) => {
         throw new Error('Resend client not initialized');
     }
     const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com';
-    const result = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
         from: `ระบบจองสนามกีฬา <${fromAddress}>`,
-        to: [to],
+        to: Array.isArray(to) ? to : [to],
         subject,
         html
     });
-    console.log('✅ Email sent via Resend:', result.id || result.message || 'no-id');
-    return { success: true, messageId: result.id || result.message || 'no-id' };
+    if (error) {
+        throw new Error(`Resend error: ${error.message || JSON.stringify(error)}`);
+    }
+    const msgId = (data && (data.id || data.messageId)) || 'unknown-id';
+    console.log('✅ Email sent via Resend:', msgId);
+    return { success: true, messageId: msgId };
 };
 
 // สร้างโทเค็นการยืนยันที่ปลอดภัย
