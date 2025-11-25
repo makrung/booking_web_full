@@ -1,40 +1,27 @@
 ﻿const crypto = require('crypto');
 require('dotenv').config();
+const { Resend } = require('resend');
 
-// ส่งอีเมลผ่าน Brevo (SendinBlue) HTTP API - ใช้ provider เดียวให้เรียบง่าย
-const sendEmail = async (to, subject, html) => {
-    const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
-    
-    if (!BREVO_API_KEY) {
-        throw new Error('BREVO_API_KEY not configured');
+// สร้าง client ของ Resend (ใช้ API key เดียว เรียบง่าย)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// ฟังก์ชันส่งอีเมลแบบง่าย ใช้ Resend API
+const sendEmailSimple = async (to, subject, html) => {
+    if (!process.env.RESEND_API_KEY) {
+        throw new Error('RESEND_API_KEY is missing');
     }
-    
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'api-key': BREVO_API_KEY
-        },
-        body: JSON.stringify({
-            sender: {
-                name: 'ระบบจองสนามกีฬา มหาวิทยาลัยศิลปกรรม',
-                email: process.env.EMAIL_USER || 'noreply@example.com'
-            },
-            to: [{ email: to }],
-            subject: subject,
-            htmlContent: html
-        })
+    if (!resend) {
+        throw new Error('Resend client not initialized');
+    }
+    const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com';
+    const result = await resend.emails.send({
+        from: `ระบบจองสนามกีฬา <${fromAddress}>`,
+        to: [to],
+        subject,
+        html
     });
-    
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Brevo API error: ${error}`);
-    }
-    
-    const result = await response.json();
-    console.log('✅ Email sent via Brevo HTTP API:', result.messageId || result.messageId || result);
-    return { success: true, messageId: result.messageId || result.messageId || result };
+    console.log('✅ Email sent via Resend:', result.id || result.message || 'no-id');
+    return { success: true, messageId: result.id || result.message || 'no-id' };
 };
 
 // สร้างโทเค็นการยืนยันที่ปลอดภัย
@@ -114,9 +101,9 @@ const sendVerificationEmail = async (userEmail, userName, verificationToken) => 
             </html>
         `;
         
-        // ส่งอีเมลผ่าน Brevo HTTP API (provider เดียว ใช้ง่าย)
-        console.log('📧 EMAIL SERVICE: Using Brevo HTTP API');
-        const result = await sendEmail(
+        // ส่งด้วย Resend แบบง่าย
+        console.log('📧 EMAIL SERVICE: Using Resend API');
+        const result = await sendEmailSimple(
             userEmail,
             'ยืนยันอีเมลสำหรับระบบจองสนามกีฬา',
             emailTemplate
@@ -207,8 +194,8 @@ const sendWelcomeEmail = async (userEmail, userName) => {
             </html>
         `;
         
-        // ส่งอีเมลผ่าน Brevo HTTP API
-        const result = await sendEmail(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
+        // ส่งอีเมลผ่าน Resend
+        const result = await sendEmailSimple(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
         console.log(`✅ Welcome email sent to ${userEmail}`);
         return result;
         
@@ -272,8 +259,8 @@ const sendTokenExpiryReminder = async (userEmail, userName, verificationToken) =
             </html>
         `;
         
-        // ส่งอีเมลผ่าน Brevo HTTP API
-        const result = await sendEmail(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
+        // ส่งอีเมลผ่าน Resend
+        const result = await sendEmailSimple(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
         console.log(`✅ Expiry reminder sent to ${userEmail}`);
         return result;
         
@@ -303,8 +290,8 @@ const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
                     </div>
                 </body></html>`;
                 
-        // ส่งอีเมลผ่าน Brevo HTTP API
-        const result = await sendEmail(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
+        // ส่งอีเมลผ่าน Resend
+        const result = await sendEmailSimple(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
         return result;
         } catch (e) {
                 console.error('sendPasswordResetEmail error:', e);
