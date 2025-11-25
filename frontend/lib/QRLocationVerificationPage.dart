@@ -499,7 +499,10 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
       return;
     }
 
+    // กำหนดให้ Stepper แสดง step "ยืนยันตำแหน่ง" ก่อนเริ่มตรวจสอบ
+    final locIndex = _locationStepIndex();
     setState(() {
+      if (locIndex >= 0) currentStep = locIndex;
       isVerifyingLocation = true;
     });
 
@@ -537,6 +540,13 @@ class _QRLocationVerificationPageState extends State<QRLocationVerificationPage>
       currentStep = submitStepIndex;
     });
     _submitBooking();
+  }
+
+  // Helper: index ของ step ยืนยันตำแหน่ง (ถ้าไม่ได้ใช้ คืน -1)
+  int _locationStepIndex() {
+    int idx = 0;
+    if (requireQR) idx++; // ถ้ามี QR จะขยับ location ไป 1
+    return requireLocation ? idx : -1;
   }
 
   Future<void> _submitBooking() async {
