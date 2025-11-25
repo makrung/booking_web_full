@@ -2,36 +2,39 @@
 const crypto = require('crypto');
 require('dotenv').config();
 
-// สร้าง transporter สำหรับส่งอีเมล
+// ส่งอีเมลผ่าน Resend HTTP API (ไม่ใช่ SMTP)
+const sendEmailViaResend = async (to, subject, html) => {
+    try {
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                from: 'Booking System <onboarding@resend.dev>',
+                to: [to],
+                subject: subject,
+                html: html
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Resend API error: ${error}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Email sent via Resend:', result.id);
+        return { success: true, messageId: result.id };
+    } catch (error) {
+        console.error('❌ Resend API error:', error);
+        throw error;
+    }
+};
+
+// สร้าง transporter สำหรับส่งอีเมล (fallback สำหรับ local dev)
 const createTransporter = async () => {
-    // ตรวจสอบว่ามี RESEND_API_KEY หรือไม่
-    if (process.env.RESEND_API_KEY) {
-        console.log('📧 EMAIL SERVICE: Using Resend (Production Mode)');
-        return nodemailer.createTransport({
-            host: 'smtp.resend.com',
-            port: 465,
-            secure: true,
-            auth: {
-                user: 'resend',
-                pass: process.env.RESEND_API_KEY
-            }
-        });
-    }
-    
-    // ตรวจสอบว่ามี SENDGRID_API_KEY หรือไม่
-    if (process.env.SENDGRID_API_KEY) {
-        console.log('📧 EMAIL SERVICE: Using SendGrid (Production Mode)');
-        return nodemailer.createTransport({
-            host: 'smtp.sendgrid.net',
-            port: 587,
-            secure: false, // use TLS
-            auth: {
-                user: 'apikey',
-                pass: process.env.SENDGRID_API_KEY
-            }
-        });
-    }
-    
     // Fallback: ใช้ Gmail (สำหรับ local development เท่านั้น)
     console.log('📧 EMAIL SERVICE: Using Gmail SMTP (Development Mode)');
     return nodemailer.createTransport({
@@ -120,8 +123,27 @@ const sendVerificationEmail = async (userEmail, userName, verificationToken) => 
             </html>
         `;
         
-        const transporter = await createTransporter();
+        // ใช้ Resend API ถ้ามี API key (สำหรับ production)
+        if (process.env.RESEND_API_KEY) {
+            console.log('📧 EMAIL SERVICE: Using Resend HTTP API (Production Mode)');
+            await sendEmailViaResend(
+                userEmail,
+                'ยืนยันอีเมลสำหรับระบบจองสนามกีฬา',
+                emailTemplate
+            );
+            
+            console.log('\n📧 EMAIL VERIFICATION');
+            console.log('==========================================');
+            console.log(`To: ${userEmail}`);
+            console.log(`Verification URL: ${verificationUrl}`);
+            console.log(`✅ Email sent via Resend API!`);
+            console.log('==========================================\n');
+            
+            return { success: true, message: 'Verification email sent successfully' };
+        }
         
+        // Fallback: ใช้ Nodemailer (local dev only)
+        const transporter = await createTransporter();
         const mailOptions = {
             from: `"ระบบจองสนามกีฬา มหาวิทยาลัยศิลปกรรม" <${process.env.EMAIL_USER}>`,
             to: userEmail,
@@ -129,15 +151,8 @@ const sendVerificationEmail = async (userEmail, userName, verificationToken) => 
             html: emailTemplate
         };
         
-        const info = await transporter.sendMail(mailOptions);
-        
-        console.log('\n📧 EMAIL VERIFICATION (Production Mode)');
-        console.log('==========================================');
-        console.log(`To: ${userEmail}`);
-        console.log(`Subject: ยืนยันอีเมลสำหรับระบบจองสนามกีฬา`);
-        console.log(`Verification URL: ${verificationUrl}`);
-        console.log(`✅ Email sent successfully!`);
-        console.log('==========================================\n');
+        await transporter.sendMail(mailOptions);
+        console.log(`✅ Email sent successfully to ${userEmail}`);
         
         return { success: true, message: 'Verification email sent successfully' };
         
@@ -217,15 +232,21 @@ const sendWelcomeEmail = async (userEmail, userName) => {
             </html>
         `;
         
+        // ใช้ Resend API ถ้ามี (production)
+        if (process.env.RESEND_API_KEY) {
+            await sendEmailViaResend(userEmail, 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา', welcomeTemplate);
+            console.log(`✅ Welcome email sent to ${userEmail}`);
+            return { success: true, message: 'Welcome email sent successfully' };
+        }
+        
+        // Fallback (local dev)
         const transporter = await createTransporter();
-        const mailOptions = {
-            from: `"ระบบจองสนามกีฬา มหาวิทยาลัยศิลปกรรม" <${process.env.EMAIL_USER}>`,
+        await transporter.sendMail({
+            from: `"ระบบจองสนามกีฬา" <${process.env.EMAIL_USER}>`,
             to: userEmail,
             subject: 'ยินดีต้อนรับสู่ระบบจองสนามกีฬา',
             html: welcomeTemplate
-        };
-        
-        await transporter.sendMail(mailOptions);
+        });
         console.log(`✅ Welcome email sent to ${userEmail}`);
         return { success: true, message: 'Welcome email sent successfully' };
         
@@ -289,16 +310,21 @@ const sendTokenExpiryReminder = async (userEmail, userName, verificationToken) =
             </html>
         `;
         
-        const transporter = await createTransporter();
+        // ใช้ Resend API ถ้ามี (production)
+        if (process.env.RESEND_API_KEY) {
+            await sendEmailViaResend(userEmail, 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ', emailTemplate);
+            console.log(`✅ Expiry reminder sent to ${userEmail}`);
+            return { success: true, message: 'Reminder email sent successfully' };
+        }
         
-        const mailOptions = {
-            from: `"ระบบจองสนามกีฬา มหาวิทยาลัยศิลปกรรม" <${process.env.EMAIL_USER}>`,
+        // Fallback (local dev)
+        const transporter = await createTransporter();
+        await transporter.sendMail({
+            from: `"ระบบจองสนามกีฬา" <${process.env.EMAIL_USER}>`,
             to: userEmail,
             subject: 'เตือน: ลิงก์ยืนยันอีเมลกำลังจะหมดอายุ',
             html: emailTemplate
-        };
-        
-        await transporter.sendMail(mailOptions);
+        });
         console.log(`✅ Expiry reminder sent to ${userEmail}`);
         return { success: true, message: 'Reminder email sent successfully' };
         
@@ -327,14 +353,22 @@ const sendPasswordResetEmail = async (userEmail, userName, resetToken) => {
                         <p>หากปุ่มกดไม่ได้ ให้คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์: <br>${resetUrl}</p>
                     </div>
                 </body></html>`;
-                const transporter = await createTransporter();
+                
+        // ใช้ Resend API ถ้ามี (production)
+        if (process.env.RESEND_API_KEY) {
+            await sendEmailViaResend(userEmail, 'ลิงก์รีเซ็ตรหัสผ่าน', html);
+            return { success: true };
+        }
+        
+        // Fallback (local dev)
+        const transporter = await createTransporter();
         await transporter.sendMail({
-                        from: `ระบบจองสนามกีฬา <${process.env.EMAIL_USER}>`,
-                        to: userEmail,
-                        subject: 'ลิงก์รีเซ็ตรหัสผ่าน',
-                        html
-                });
-                return { success: true };
+            from: `ระบบจองสนามกีฬา <${process.env.EMAIL_USER}>`,
+            to: userEmail,
+            subject: 'ลิงก์รีเซ็ตรหัสผ่าน',
+            html
+        });
+        return { success: true };
         } catch (e) {
                 console.error('sendPasswordResetEmail error:', e);
                 return { success: false, message: e.message };
