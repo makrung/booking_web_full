@@ -4,7 +4,6 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "numReplicas": 1,
-    "startCommand": "cd backend && npm start"
+    "numReplicas": 1
   }
 }
