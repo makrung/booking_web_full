@@ -4,6 +4,7 @@ backend/.env.local
 backend/.env.*.local
 backend/dist/
 backend/build/
+backend/serviceAccountKey.json
 
 # Frontend
 frontend/build/
