@@ -117,15 +117,31 @@ function createMemoryRateLimiter({ windowMs = 60 * 1000, max = 300, keyGenerator
     };
 }
 
-// Serve static files with caching
+// Serve static files with caching.
+// We force no-cache for critical Flutter web shell files to ensure rapid propagation of UI changes.
 const staticOptions = {
     maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
     etag: true,
     lastModified: true,
     setHeaders: (res, filePath) => {
-        // cache-busting for uploads can be shorter
+        const filename = path.basename(filePath);
+        // Critical shell assets that must update immediately when changed
+        const noCacheFiles = new Set([
+            'index.html',
+            'main.dart.js',
+            'flutter_bootstrap.js',
+            'flutter_service_worker.js'
+        ]);
+        if (noCacheFiles.has(filename)) {
+            // Prevent long-lived caching; allow browser to revalidate each load
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            return;
+        }
+        // Cache uploads (user-provided/static media) a bit longer, mark immutable where possible
         if (filePath.includes(path.join('public', 'uploads'))) {
-            res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7d
+            res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 days
         } else {
             res.setHeader('Cache-Control', 'public, max-age=604800');
         }
